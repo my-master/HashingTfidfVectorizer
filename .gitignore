@@ -99,3 +99,16 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+#experiments
+experimental_vectorizer.py
+experimental_test.py
+
+#log
+log.txt
+
+# IDEA
+.idea
+
+# GIT
+.git
