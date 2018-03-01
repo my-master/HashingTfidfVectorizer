@@ -12,6 +12,13 @@ textual database, it may be fun)
 
 Though I'm still working on imporving of the parallel computing part.
 
+## Installation
+
+```bash
+pip install -r requirements.txt
+python -m spacy download en
+```
+
 ## Usage
 
 ```python
