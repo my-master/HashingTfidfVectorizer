@@ -7,7 +7,7 @@ Very fast implementation of tf-idf vectorizer.
 * hash
 * parallel computing
 * fast implementation of [SpaCy](https://spacy.io/) tokenizer
-* SQLite iterator (it's not necessary to use it, but if you have a SQLite
+* SQLite iterators (it's not necessary to use it, but if you have a SQLite
 textual database, it may be fun)
 
 Though I'm still working on imporving of the parallel computing part.

@@ -103,6 +103,7 @@ ENV/
 #experiments
 experimental_vectorizer.py
 experimental_test.py
+run.py
 
 #log
 log.txt
