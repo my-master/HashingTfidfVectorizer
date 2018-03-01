@@ -19,9 +19,8 @@ import time
 
 from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS
 
-from simple_iterator import SimpleIterator
+from tokenizers.simple_iterator import SimpleIterator
 from vectorizer import HashingTfIdfVectorizer
-from tokenizers.spacy_tokenizer import SpacyTokenizer
 
 DATA = ["I think it's better to fry mushrooms.",
         "Oh, this senseless life of ours!"] * 20000
@@ -47,7 +46,7 @@ print(
 ```
 
 
-```bash
+```
 Process time for parallel fit, 40000 docs: 9.25651478767395 s.
 Process time for non parallel fit, 40000 docs: 12.76369833946228 s.
 ```
