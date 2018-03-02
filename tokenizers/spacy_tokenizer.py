@@ -38,10 +38,6 @@ class SpacyTokenizer:
         :param data: a list of documents to process
         :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
         (1, 2), for bigrams only should be set to (2, 2)
-        :param batch_size: the number of documents to process at once;
-        improves the spacy 'pipe' performance; shouldn't be too small
-        :param n_threads: a number of threads for parallel computing; doesn't work good
-         on a standard Python
         :param lower: whether to perform lowercasing or not
         :return: a single processed doc generator
         """
@@ -64,10 +60,6 @@ class SpacyTokenizer:
         :param data: a list of documents to process
         :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
         (1, 2), for bigrams only should be set to (2, 2)
-        :param batch_size: the number of documents to process at once;
-        improves the spacy 'pipe' performance; shouldn't be too small
-        :param n_threads: a number of threads for parallel computing; doesn't work good
-         on a standard Python
         :return: a single processed doc generator
         """
         size = len(data)
