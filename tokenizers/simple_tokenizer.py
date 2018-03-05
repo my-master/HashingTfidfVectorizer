@@ -5,9 +5,8 @@ from logger import logger
 
 class SimpleTokenizer:
     """
-    Tokenize or lemmatize a list of documents.
+    Tokenize a list of documents by simple split().
     Return list of tokens or lemmas, without sentencizing.
-    Works only for English language.
     """
 
     def __init__(self, stopwords=None, batch_size=None, ngram_range=None):
@@ -21,17 +20,13 @@ class SimpleTokenizer:
         self.batch_size = batch_size
         self.ngram_range = ngram_range
 
-    def lemmatize(self, data: List[str], ngram_range=(1, 1), batch_size=10000, n_threads=1) -> \
+    def lemmatize(self, data: List[str], ngram_range=(1, 1)) -> \
             Generator[List[str], Any, None]:
         """
         Lemmatize a list of documents.
         :param data: a list of documents to process
         :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
         (1, 2), for bigrams only should be set to (2, 2)
-        :param batch_size: the number of documents to process at once;
-        improves the spacy 'pipe' performance; shouldn't be too small
-        :param n_threads: a number of threads for parallel computing; doesn't work good
-         on a standard Python
         :return: a single processed doc generator
         """
         size = len(data)
