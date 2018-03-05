@@ -7,7 +7,7 @@ from spacy.lang.en import English
 from logger import logger
 
 
-class SpacyTokenizer:
+class SpacyStreamTokenizer:
     """
     Tokenize or lemmatize a list of documents.
     Return list of tokens or lemmas, without sentencizing.
