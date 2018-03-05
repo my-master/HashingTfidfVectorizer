@@ -1,7 +1,7 @@
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 import concurrent
-from typing import TypeVar, List, Any, Generator, Tuple, KeysView, ValuesView
+from typing import TypeVar, List, Any, Generator, Tuple, KeysView, ValuesView, Dict
 
 import scipy as sp
 from scipy import sparse
@@ -34,6 +34,7 @@ class HashingTfIdfVectorizer:
         self.text_processor = tokenizer.lemmatize
         self.data_iterator = data_iterator
         self.ngram_range = ngram_range
+        self.freqs = None
 
         if stopwords:
             tokenizer.stopwords = stopwords
@@ -97,17 +98,17 @@ class HashingTfIdfVectorizer:
         return count_matrix
 
     @staticmethod
-    def get_tfidf_matrix(count_matrix: sp.sparse.csr_matrix) -> sp.sparse.csr_matrix:
+    def get_tfidf_matrix(count_matrix: sp.sparse.csr_matrix) -> Tuple[sp.sparse.csr_matrix, np.array]:
         """Convert a word count matrix into a tfidf matrix."""
 
         binary = (count_matrix > 0).astype(int)
-        freqs = np.array(binary.sum(1)).squeeze()
-        idfs = np.log((count_matrix.shape[1] - freqs + 0.5) / (freqs + 0.5))
+        term_freqs = np.array(binary.sum(1)).squeeze()
+        idfs = np.log((count_matrix.shape[1] - term_freqs + 0.5) / (term_freqs + 0.5))
         idfs[idfs < 0] = 0
         idfs = sp.sparse.diags(idfs, 0)
         tfs = count_matrix.log1p()
         tfidfs = idfs.dot(tfs)
-        return tfidfs
+        return tfidfs, term_freqs
 
     def fit(self) -> sp.sparse.csr_matrix:
         rows = []
@@ -121,7 +122,8 @@ class HashingTfIdfVectorizer:
                 data.extend(batch_data)
 
         count_matrix = self.get_count_matrix(rows, cols, data, size=len(self._doc_index))
-        tfidf_matrix = self.get_tfidf_matrix(count_matrix)
+        tfidf_matrix, term_freqs = self.get_tfidf_matrix(count_matrix)
+        self.freqs = term_freqs
         return tfidf_matrix
 
     def fit_parallel(self, n_jobs=1) -> sp.sparse.csr_matrix:
@@ -144,22 +146,29 @@ class HashingTfIdfVectorizer:
                 cols.extend(result[2])
 
         count_matrix = self.get_count_matrix(rows, cols, data, size=len(self._doc_index))
-        tfidf_matrix = self.get_tfidf_matrix(count_matrix)
+        tfidf_matrix, term_freqs = self.get_tfidf_matrix(count_matrix)
+        self.freqs = term_freqs
         return tfidf_matrix
 
-    @staticmethod
-    def save_matrix(save_path, tfidf_matrix: sp.sparse.csr_matrix) -> None:
+    def save_matrix(self, save_path, tfidf_matrix: sp.sparse.csr_matrix) -> None:
+
+        opts = {'hash_size': self.hash_size,
+                'ngram_rage': self.ngram_range,
+                'doc_index': self._doc_index,
+                'term_freqs': self.freqs}
+
         data = {
             'data': tfidf_matrix.data,
             'indices': tfidf_matrix.indices,
             'indptr': tfidf_matrix.indptr,
             'shape': tfidf_matrix.shape,
+            'opts': opts
         }
         np.savez(save_path, **data)
 
     @staticmethod
-    def load_matrix(load_path) -> sp.sparse.csr_matrix:
+    def load_matrix(load_path) -> Tuple[sp.sparse.csr_matrix, Dict]:
         loader = np.load(load_path)
-        matrix = sp.csr_matrix((loader['data'], loader['indices'],
+        matrix = sp.sparse.csr_matrix((loader['data'], loader['indices'],
                                 loader['indptr']), shape=loader['shape'])
-        return matrix
+        return matrix, loader['opts'].item(0)
