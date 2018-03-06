@@ -29,7 +29,7 @@ class HashingTfIdfVectorizer:
         :param hash_size: a size of hash, power of 2
         :param tokenizer: an instance of a tokenizer class
         """
-        self._doc_index = data_iterator.doc_index
+        self.doc2index = data_iterator.doc2index
         self.hash_size = hash_size
         self.text_processor = tokenizer.lemmatize
         self.data_iterator = data_iterator
@@ -55,7 +55,7 @@ class HashingTfIdfVectorizer:
             counts = Counter([hash(gram, self.hash_size) for gram in ngrams])
             hashes = counts.keys()
             values = counts.values()
-            _id = self._doc_index[next(doc_id)]
+            _id = self.doc2index[next(doc_id)]
             if values:
                 col_id = [_id] * len(values)
             else:
@@ -67,7 +67,7 @@ class HashingTfIdfVectorizer:
 
         docs = kwargs['docs']
         doc_ids = kwargs['doc_ids']
-        index = kwargs['index']
+        index = kwargs['doc2index']
         hash_size = kwargs['hash_size']
         ngram_range = kwargs['ngram_range']
 
@@ -121,7 +121,7 @@ class HashingTfIdfVectorizer:
                 cols.extend(batch_cols)
                 data.extend(batch_data)
 
-        count_matrix = self.get_count_matrix(rows, cols, data, size=len(self._doc_index))
+        count_matrix = self.get_count_matrix(rows, cols, data, size=len(self.doc2index))
         tfidf_matrix, term_freqs = self.get_tfidf_matrix(count_matrix)
         self.freqs = term_freqs
         return tfidf_matrix
@@ -134,7 +134,7 @@ class HashingTfIdfVectorizer:
 
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
             futures = [executor.submit(self.get_counts_parallel, (
-                {'docs': docs, 'doc_ids': doc_ids, 'index': self._doc_index,
+                {'docs': docs, 'doc_ids': doc_ids, 'doc2index': self.doc2index,
                  'hash_size': self.hash_size, 'ngram_range': self.ngram_range})) for docs, doc_ids
                        in
                        self.data_iterator.read_batch()]
@@ -145,7 +145,7 @@ class HashingTfIdfVectorizer:
                 data.extend(result[1])
                 cols.extend(result[2])
 
-        count_matrix = self.get_count_matrix(rows, cols, data, size=len(self._doc_index))
+        count_matrix = self.get_count_matrix(rows, cols, data, size=len(self.doc2index))
         tfidf_matrix, term_freqs = self.get_tfidf_matrix(count_matrix)
         self.freqs = term_freqs
         return tfidf_matrix
@@ -154,7 +154,7 @@ class HashingTfIdfVectorizer:
 
         opts = {'hash_size': self.hash_size,
                 'ngram_rage': self.ngram_range,
-                'doc_index': self._doc_index,
+                'doc2index': self.doc2index,
                 'term_freqs': self.freqs}
 
         data = {

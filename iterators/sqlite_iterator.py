@@ -9,7 +9,7 @@ class SQLiteDataIterator:
         self.connect = sqlite3.connect(self.load_path, check_same_thread=False)
         self.db_name = self.get_db_name()
         self.doc_ids = self.get_doc_ids()
-        self.doc_index = self.map_doc2idx()
+        self.doc2index = self.map_doc2idx()
         self.batch_size = batch_size
 
     def get_doc_ids(self):
