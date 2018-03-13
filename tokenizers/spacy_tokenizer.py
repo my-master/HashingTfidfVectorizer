@@ -1,4 +1,4 @@
-from typing import List, Generator, Any
+from typing import List, Generator, Any, Tuple
 
 import spacy
 from spacy.tokenizer import Tokenizer
@@ -15,11 +15,19 @@ class SpacyTokenizer:
     Works only for English language.
     """
 
-    def __init__(self, disable=None, stopwords=None, batch_size=None, ngram_range=None):
+    def __init__(self, disable: list = None, stopwords: list = None, batch_size: int = None,
+                 ngram_range: Tuple[int, int] = None, lemmas=False,
+                 lowercase: bool = None):
         """
         :param disable: pipeline processors to omit; if nothing should be disabled,
          pass an empty list
         :param stopwords: a set of words to skip
+        :param batch_size: a batch size for internal spaCy multi-threading
+        :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
+        (1, 2), for bigrams only should be set to (2, 2)
+        :param lemmas: weather to perform lemmatizing or not while tokenizing, currently works only
+        for the English language
+        :param n_threads: a number of threads for internal spaCy multi-threading
         """
         if disable is None:
             disable = ['parser', 'ner']
@@ -30,9 +38,11 @@ class SpacyTokenizer:
         self.lemmatizer = Lemmatizer(LEMMA_INDEX, LEMMA_EXC, LEMMA_RULES, LOOKUP)
         self.batch_size = batch_size
         self.ngram_range = ngram_range
+        self.lemmas = lemmas
+        self.lowercase = lowercase
 
-    def tokenize(self, data: List[str], ngram_range=(1, 1), lower=True) -> Generator[
-        List[str], Any, None]:
+    def tokenize(self, data: List[str], ngram_range=(1, 1),
+                 lowercase=True) -> Generator[List[str], Any, None]:
         """
         Tokenize a list of documents.
         :param data: a list of documents to process
@@ -43,14 +53,21 @@ class SpacyTokenizer:
         """
         size = len(data)
 
+        _ngram_range = self.ngram_range or ngram_range
+
+        if self.lowercase is None:
+            _lowercase = lowercase
+        else:
+            _lowercase = self.lowercase
+
         for i, doc in enumerate(data):
             spacy_doc = self.model(doc)
             logger.debug("Tokenize doc {} from {}".format(i, size))
-            if lower:
+            if _lowercase:
                 tokens = [t.lower_ for t in spacy_doc]
             else:
                 tokens = [t.text for t in spacy_doc]
-            processed_doc = self.ngramize(tokens, ngram_range=ngram_range)
+            processed_doc = self.ngramize(tokens, ngram_range=_ngram_range)
             yield from processed_doc
 
     def lemmatize(self, data: List[str], ngram_range=(1, 1)) -> \
