@@ -64,6 +64,10 @@ class HashingTfIdfVectorizer:
 
     @staticmethod
     def get_counts_parallel(kwargs) -> Tuple[List[int], List[int], List[int]]:
+        """
+        Get batch counts. The same as get_counts(), but rewritten as staticmethod to be suitable
+        for parallelization.
+        """
 
         docs = kwargs['docs']
         doc_ids = kwargs['doc_ids']

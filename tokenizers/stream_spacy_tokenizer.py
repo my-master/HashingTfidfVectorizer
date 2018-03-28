@@ -5,18 +5,19 @@ import spacy
 from spacy.lang.en import English
 
 from logger import logger
+from .utils import ngramize
 
 
 class StreamSpacyTokenizer:
     """
-    Tokenize or lemmatize a list of documents.
+    Tokenize or tokenize a list of documents.
     Return list of tokens or lemmas, without sentencizing.
     Works only for English language.
     """
 
     def __init__(self, disable: list = None, stopwords: list = None, batch_size: int = None,
                  ngram_range: Tuple[int, int] = None, lemmas=False, n_threads: int = None,
-                 lowercase: bool = None):
+                 lowercase: bool = None, alphas_only: bool = None):
         """
         :param disable: pipeline processors to omit; if nothing should be disabled,
          pass an empty list
@@ -26,11 +27,13 @@ class StreamSpacyTokenizer:
         (1, 2), for bigrams only should be set to (2, 2)
         :param lemmas: weather to perform lemmatizing or not while tokenizing, currently works only
         for the English language
+        :param lowercase: whether to perform lowercasing or not
         :param n_threads: a number of threads for internal spaCy multi-threading
+        :param alphas_only: should filter numeric and alpha-numeric types or not
         """
         if disable is None:
             disable = ['parser', 'ner']
-        self.stopwords = stopwords or []
+        self._stopwords = stopwords or []
         self.model = spacy.load('en', disable=disable)
         self.model.add_pipe(self.model.create_pipe('sentencizer'))
         self.tokenizer = English().Defaults.create_tokenizer(self.model)
@@ -39,6 +42,15 @@ class StreamSpacyTokenizer:
         self.lemmas = lemmas
         self.n_threads = n_threads
         self.lowercase = lowercase
+        self.alphas_only = alphas_only
+
+    @property
+    def stopwords(self):
+        return self._stopwords
+
+    @stopwords.setter
+    def stopwords(self, stopwords: List[str]):
+        self._stopwords = stopwords
 
     def tokenize(self, data: List[str], ngram_range=(1, 1), batch_size=10000, n_threads=1,
                  lowercase=True) -> Generator[List[str], Any, None]:
@@ -73,7 +85,8 @@ class StreamSpacyTokenizer:
                 tokens = [t.lower_ for t in doc]
             else:
                 tokens = [t.text for t in doc]
-            processed_doc = self.ngramize(tokens, ngram_range=_ngram_range)
+            filtered = self._filter(tokens)
+            processed_doc = ngramize(filtered, ngram_range=_ngram_range)
             yield from processed_doc
 
     def lemmatize(self, data: List[str], ngram_range=(1, 1), batch_size=10000, n_threads=1) -> \
@@ -100,29 +113,23 @@ class StreamSpacyTokenizer:
                 self.model.pipe(data, batch_size=_batch_size, n_threads=_n_threads)):
             logger.info("Lemmatize doc {} from {}".format(i, size))
             lemmas = chain.from_iterable([sent.lemma_.split() for sent in doc.sents])
-            processed_doc = self.ngramize(lemmas, ngram_range=_ngram_range)
+            filtered = self._filter(lemmas)
+            processed_doc = ngramize(filtered, ngram_range=_ngram_range)
+
             yield from processed_doc
 
-    def ngramize(self, items: List[str], ngram_range=(1, 1)) -> Generator[List[str], Any, None]:
+    def _filter(self, items, alphas_only=True):
         """
+        Make ngrams from a list of tokens/lemmas
         :param items: list of tokens, lemmas or other strings to form ngrams
-        :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
-        (1, 2), for bigrams only should be set to (2, 2)
-        :return: ngrams (as strings) generator
+        :param alphas_only: should filter numeric and alpha-numeric types or not
+        :return: filtered list of tokens/lemmas
         """
-        _ngram_range = self.ngram_range or ngram_range
+        _alphas_only = self.alphas_only or alphas_only
 
-        filtered = list(
-            filter(lambda x: x.isalpha() and x not in self.stopwords, items))
+        if _alphas_only:
+            filter_fn = lambda x: x.isalpha() and x not in self._stopwords
+        else:
+            filter_fn = lambda x: x not in self._stopwords
 
-        ngrams = []
-        ranges = [(0, i) for i in range(_ngram_range[0], _ngram_range[1] + 1)]
-        for r in ranges:
-            ngrams += list(zip(*[filtered[j:] for j in range(*r)]))
-
-        formatted_ngrams = [' '.join(item) for item in ngrams]
-
-        yield formatted_ngrams
-
-    def set_stopwords(self, stopwords):
-        self.stopwords = stopwords
+        return list(filter(filter_fn, items))
