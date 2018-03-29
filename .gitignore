@@ -103,6 +103,7 @@ ENV/
 #experiments
 /experiments/
 run.py
+readme_ex.py
 
 #log
 log.txt
