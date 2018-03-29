@@ -57,6 +57,12 @@ class SimpleTokenizer:
             processed_doc = ngramize(filtered, ngram_range=_ngram_range)
             yield from processed_doc
 
+    def sklearn_tokenize(self, data: str):
+        """
+        Use as argument for `tokenizer` kw in sklearn TfidfVectorizer
+        """
+        return list(*self.tokenize([data]))
+
     def _filter(self, items, alphas_only=True):
         """
         Make ngrams from a list of tokens/lemmas
