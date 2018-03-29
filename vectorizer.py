@@ -1,7 +1,7 @@
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 import concurrent
-from typing import TypeVar, List, Any, Generator, Tuple, KeysView, ValuesView, Dict
+from typing import TypeVar, List, Any, Generator, Tuple, KeysView, ValuesView
 
 import scipy as sp
 from scipy import sparse
@@ -31,7 +31,19 @@ class HashingTfIdfVectorizer:
         """
         self.doc2index = data_iterator.doc2index
         self.hash_size = hash_size
-        self.text_processor = tokenizer.lemmatize
+
+        global TOKENIZER
+        TOKENIZER = tokenizer
+
+        if hasattr(tokenizer, 'lemmatize'):
+            processing_fn = tokenizer.lemmatize
+        elif hasattr(tokenizer, 'tokenize'):
+            processing_fn = tokenizer.tokenize
+        else:
+            raise AttributeError("{} should implement either 'tokenize()' or lemmatize()".
+                                 format(tokenizer.__class__.__name__))
+
+        self.processing_fn = processing_fn
         self.data_iterator = data_iterator
         self.ngram_range = ngram_range
         self.freqs = None
@@ -42,13 +54,10 @@ class HashingTfIdfVectorizer:
         if batch_size:
             tokenizer.batch_size = batch_size
 
-        global TOKENIZER
-        TOKENIZER = tokenizer
-
     def get_counts(self, docs: List[str], doc_ids: List[Any]) \
             -> Generator[Tuple[KeysView, ValuesView, List[int]], Any, None]:
         logger.info("Tokenizing batch...")
-        batch_ngrams = list(self.text_processor(docs, ngram_range=self.ngram_range))
+        batch_ngrams = list(self.processing_fn(docs, ngram_range=self.ngram_range))
         logger.info("Counting hash...")
         doc_id = iter(doc_ids)
         for ngrams in batch_ngrams:
@@ -76,7 +85,16 @@ class HashingTfIdfVectorizer:
         ngram_range = kwargs['ngram_range']
 
         logger.info("Tokenizing batch...")
-        batch_ngrams = list(TOKENIZER.lemmatize(docs, ngram_range=ngram_range))
+
+        if hasattr(TOKENIZER, 'lemmatize'):
+            processing_fn = TOKENIZER.lemmatize
+        elif hasattr(TOKENIZER, 'tokenize'):
+            processing_fn = TOKENIZER.tokenize
+        else:
+            raise AttributeError("{} should implement either 'tokenize()' or lemmatize()".
+                                 format(TOKENIZER.__class__.__name__))
+
+        batch_ngrams = list(processing_fn(docs, ngram_range=ngram_range))
         doc_id = iter(doc_ids)
 
         batch_hashes = []
