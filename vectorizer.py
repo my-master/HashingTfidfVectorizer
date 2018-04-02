@@ -201,7 +201,7 @@ class HashingTfIdfVectorizer:
 
         return transformed
 
-    def save_model(self, save_path) -> None:
+    def save(self, save_path: str) -> None:
 
         logger.info('Saving tfidf model to {}'.format(save_path))
 
@@ -219,7 +219,7 @@ class HashingTfIdfVectorizer:
         }
         np.savez(save_path, **data)
 
-    def load_model(self, load_path) -> None:
+    def load(self, load_path: str) -> None:
         logger.info('Loading tfidf model from {}'.format(load_path))
         loader = np.load(load_path)
 
