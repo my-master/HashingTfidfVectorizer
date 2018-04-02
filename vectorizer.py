@@ -1,7 +1,7 @@
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 import concurrent
-from typing import TypeVar, List, Any, Generator, Tuple, KeysView, ValuesView
+from typing import List, Any, Generator, Tuple, KeysView, ValuesView, Dict
 
 import scipy as sp
 from scipy import sparse
@@ -11,7 +11,6 @@ from tokenizers.spacy_tokenizer import SpacyTokenizer
 from logger import logger
 from utils import hash
 
-T = TypeVar('T')
 TOKENIZER = None
 
 
@@ -20,44 +19,38 @@ class HashingTfIdfVectorizer:
     Create a tfidf matrix from collection of documents.
     """
 
-    def __init__(self, data_iterator: T, hash_size=2 ** 24, ngram_range=(1, 1),
-                 stopwords=None, tokenizer=SpacyTokenizer(), batch_size=None):
+    def __init__(self, data_iterator, hash_size=2 ** 24, tokenizer=SpacyTokenizer()):
         """
 
         :param data_iterator: an instance of an iterator class, producing data batches;
         the iterator class should implement read_batch() method
         :param hash_size: a size of hash, power of 2
-        :param tokenizer: an instance of a tokenizer class
+        :param tokenizer: an instance of a tokenizer class; should implement "lemmatize()"
+         and/or "tokenize() methods"
         """
         self.doc2index = data_iterator.doc2index
         self.hash_size = hash_size
+        self.tokenizer = tokenizer
 
         global TOKENIZER
-        TOKENIZER = tokenizer
+        TOKENIZER = self.tokenizer
 
-        if hasattr(tokenizer, 'lemmatize'):
-            processing_fn = tokenizer.lemmatize
-        elif hasattr(tokenizer, 'tokenize'):
-            processing_fn = tokenizer.tokenize
+        if hasattr(self.tokenizer, 'lemmatize'):
+            processing_fn = self.tokenizer.lemmatize
+        elif hasattr(self.tokenizer, 'tokenize'):
+            processing_fn = self.tokenizer.tokenize
         else:
             raise AttributeError("{} should implement either 'tokenize()' or lemmatize()".
-                                 format(tokenizer.__class__.__name__))
+                                 format(self.tokenizer.__class__.__name__))
 
         self.processing_fn = processing_fn
         self.data_iterator = data_iterator
-        self.ngram_range = ngram_range
         self.freqs = None
-
-        if stopwords:
-            tokenizer.stopwords = stopwords
-
-        if batch_size:
-            tokenizer.batch_size = batch_size
 
     def get_counts(self, docs: List[str], doc_ids: List[Any]) \
             -> Generator[Tuple[KeysView, ValuesView, List[int]], Any, None]:
         logger.info("Tokenizing batch...")
-        batch_ngrams = list(self.processing_fn(docs, ngram_range=self.ngram_range))
+        batch_ngrams = list(self.processing_fn(docs))
         logger.info("Counting hash...")
         doc_id = iter(doc_ids)
         for ngrams in batch_ngrams:
@@ -82,7 +75,6 @@ class HashingTfIdfVectorizer:
         doc_ids = kwargs['doc_ids']
         index = kwargs['doc2index']
         hash_size = kwargs['hash_size']
-        ngram_range = kwargs['ngram_range']
 
         logger.info("Tokenizing batch...")
 
@@ -94,7 +86,7 @@ class HashingTfIdfVectorizer:
             raise AttributeError("{} should implement either 'tokenize()' or lemmatize()".
                                  format(TOKENIZER.__class__.__name__))
 
-        batch_ngrams = list(processing_fn(docs, ngram_range=ngram_range))
+        batch_ngrams = list(processing_fn(docs))
         doc_id = iter(doc_ids)
 
         batch_hashes = []
@@ -157,7 +149,7 @@ class HashingTfIdfVectorizer:
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
             futures = [executor.submit(self.get_counts_parallel, (
                 {'docs': docs, 'doc_ids': doc_ids, 'doc2index': self.doc2index,
-                 'hash_size': self.hash_size, 'ngram_range': self.ngram_range})) for docs, doc_ids
+                 'hash_size': self.hash_size})) for docs, doc_ids
                        in
                        self.data_iterator.read_batch()]
 
@@ -172,10 +164,41 @@ class HashingTfIdfVectorizer:
         self.freqs = term_freqs
         return tfidf_matrix
 
-    def save_matrix(self, save_path, tfidf_matrix: sp.sparse.csr_matrix) -> None:
+    def transform(self, doc: str) -> sp.sparse.csr_matrix:
+
+        # TODO make for input list of documents
+
+        ngrams = list(self.processing_fn([doc]))
+        hashes = [hash(ngram, self.hash_size) for ngram in ngrams[0]]
+
+        hashes_unique, q_hashes = np.unique(hashes, return_counts=True)
+        tfs = np.log1p(q_hashes)
+
+        # TODO revise policy if len(q_hashes) == 0 ?
+
+        if len(q_hashes) == 0:
+            return sp.sparse.csr_matrix((1, self.hash_size))
+
+        size = len(self.doc2index)
+        Ns = self.freqs[hashes_unique]
+        idfs = np.log((size - Ns + 0.5) / (Ns + 0.5))
+        idfs[idfs < 0] = 0
+
+        tfidf = np.multiply(tfs, idfs)
+
+        indptr = np.array([0, len(hashes_unique)])
+        sp_tfidf = sp.sparse.csr_matrix(
+            (tfidf, hashes_unique, indptr), shape=(1, self.hash_size)
+        )
+
+        return sp_tfidf
+
+    def save_model(self, save_path, tfidf_matrix: sp.sparse.csr_matrix) -> None:
+
+        logger.info('Saving tfidf model to {}'.format(save_path))
 
         opts = {'hash_size': self.hash_size,
-                'ngram_rage': self.ngram_range,
+                'ngram_range': self.tokenizer.ngram_range,
                 'doc2index': self.doc2index,
                 'term_freqs': self.freqs}
 
@@ -187,3 +210,11 @@ class HashingTfIdfVectorizer:
             'opts': opts
         }
         np.savez(save_path, **data)
+
+    @staticmethod
+    def load_model(load_path) -> Tuple[sp.sparse.csr_matrix, Dict]:
+        logger.info('Loading tfidf model from {}'.format(load_path))
+        loader = np.load(load_path)
+        matrix = sp.sparse.csr_matrix((loader['data'], loader['indices'],
+                                       loader['indptr']), shape=loader['shape'])
+        return matrix, loader['opts'].item(0)
