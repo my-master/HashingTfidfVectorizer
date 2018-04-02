@@ -33,8 +33,9 @@ DATA = ["I think it's better to fry mushrooms.",
         "Oh, this senseless life of ours!"] * 20000
 
 iterator = SimpleIterator(DATA, batch_size=1000)
-vectorizer = HashingTfIdfVectorizer(iterator, ngram_range=(1, 2), stopwords=ENGLISH_STOP_WORDS,
-                                    batch_size=1000, tokenizer=SpacyTokenizer())
+vectorizer = HashingTfIdfVectorizer(iterator, ngram_range=(1, 2),
+vectorizer = HashingTfIdfVectorizer(iterator, tokenizer=SimpleTokenizer(ngram_range=(1, 2),
+                                                                        stopwords=ENGLISH_STOP_WORDS))
 
 t01 = time.time()
 tfidf_matrix = vectorizer.fit_parallel(n_jobs=7)
