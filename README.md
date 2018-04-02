@@ -38,11 +38,11 @@ vectorizer = HashingTfIdfVectorizer(iterator, tokenizer=SimpleTokenizer(ngram_ra
                                                                         stopwords=ENGLISH_STOP_WORDS))
 
 t01 = time.time()
-tfidf_matrix = vectorizer.fit_parallel(n_jobs=7)
+vectorizer.fit_parallel(n_jobs=7)
 t1 = time.time() - t01
 
 t02 = time.time()
-tfidf_matrix = vectorizer.fit()
+vectorizer.fit()
 t2 = time.time() - t02
 
 
