@@ -12,6 +12,9 @@ class SimpleIterator:
     def get_doc_ids(self):
         return list(range(len(self.data)))
 
+    def get_docs(self, doc_ids):
+        return [self.data[j] for j in doc_ids]
+
     def read_batch(self, batch_size=1000) -> Generator[Tuple[List[str], List[Any]], Any, None]:
         _batch_size = self.batch_size or batch_size
         batches = [self.doc2index[i:i + _batch_size] for i in
@@ -21,5 +24,5 @@ class SimpleIterator:
         for i, doc_ids in enumerate(batches):
             logger.info(
                 "Processing batch # {} of {} ({} documents)".format(i, len_batches, len(doc_ids)))
-            docs = [self.data[j] for j in doc_ids]
+            docs = self.get_docs(doc_ids)
             yield docs, doc_ids
