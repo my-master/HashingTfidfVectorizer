@@ -45,7 +45,9 @@ class HashingTfIdfVectorizer:
 
         self.processing_fn = processing_fn
         self.data_iterator = data_iterator
-        self.freqs = None
+
+        self.tfidf_matrix = None
+        self.term_freqs = None
 
     def get_counts(self, docs: List[str], doc_ids: List[Any]) \
             -> Generator[Tuple[KeysView, ValuesView, List[int]], Any, None]:
@@ -124,7 +126,7 @@ class HashingTfIdfVectorizer:
         tfidfs = idfs.dot(tfs)
         return tfidfs, term_freqs
 
-    def fit(self) -> sp.sparse.csr_matrix:
+    def fit(self) -> None:
         rows = []
         cols = []
         data = []
@@ -137,10 +139,10 @@ class HashingTfIdfVectorizer:
 
         count_matrix = self.get_count_matrix(rows, cols, data, size=len(self.doc2index))
         tfidf_matrix, term_freqs = self.get_tfidf_matrix(count_matrix)
-        self.freqs = term_freqs
-        return tfidf_matrix
+        self.term_freqs = term_freqs
+        self.tfidf_matrix = tfidf_matrix
 
-    def fit_parallel(self, n_jobs=1) -> sp.sparse.csr_matrix:
+    def fit_parallel(self, n_jobs=1) -> None:
 
         rows = []
         cols = []
@@ -161,60 +163,76 @@ class HashingTfIdfVectorizer:
 
         count_matrix = self.get_count_matrix(rows, cols, data, size=len(self.doc2index))
         tfidf_matrix, term_freqs = self.get_tfidf_matrix(count_matrix)
-        self.freqs = term_freqs
-        return tfidf_matrix
+        self.term_freqs = term_freqs
+        self.tfidf_matrix = tfidf_matrix
 
-    def transform(self, doc: str) -> sp.sparse.csr_matrix:
+    def transform(self, docs: List[str]) -> sp.sparse.csr_matrix:
 
-        # TODO make for input list of documents
+        docs_tfidfs = []
 
-        ngrams = list(self.processing_fn([doc]))
-        hashes = [hash(ngram, self.hash_size) for ngram in ngrams[0]]
+        # TODO Try to vectorize w/o for loop
 
-        hashes_unique, q_hashes = np.unique(hashes, return_counts=True)
-        tfs = np.log1p(q_hashes)
+        for doc in docs:
+            ngrams = list(self.processing_fn([doc]))
+            hashes = [hash(ngram, self.hash_size) for ngram in ngrams[0]]
 
-        # TODO revise policy if len(q_hashes) == 0 ?
+            hashes_unique, q_hashes = np.unique(hashes, return_counts=True)
+            tfs = np.log1p(q_hashes)
 
-        if len(q_hashes) == 0:
-            return sp.sparse.csr_matrix((1, self.hash_size))
+            # TODO ? revise policy if len(q_hashes) == 0
 
-        size = len(self.doc2index)
-        Ns = self.freqs[hashes_unique]
-        idfs = np.log((size - Ns + 0.5) / (Ns + 0.5))
-        idfs[idfs < 0] = 0
+            if len(q_hashes) == 0:
+                return sp.sparse.csr_matrix((1, self.hash_size))
 
-        tfidf = np.multiply(tfs, idfs)
+            size = len(self.doc2index)
+            Ns = self.term_freqs[hashes_unique]
+            idfs = np.log((size - Ns + 0.5) / (Ns + 0.5))
+            idfs[idfs < 0] = 0
 
-        indptr = np.array([0, len(hashes_unique)])
-        sp_tfidf = sp.sparse.csr_matrix(
-            (tfidf, hashes_unique, indptr), shape=(1, self.hash_size)
-        )
+            tfidf = np.multiply(tfs, idfs)
 
-        return sp_tfidf
+            indptr = np.array([0, len(hashes_unique)])
+            sp_tfidf = sp.sparse.csr_matrix(
+                (tfidf, hashes_unique, indptr), shape=(1, self.hash_size)
+            )
+            docs_tfidfs.append(sp_tfidf)
 
-    def save_model(self, save_path, tfidf_matrix: sp.sparse.csr_matrix) -> None:
+        transformed = sp.sparse.vstack(docs_tfidfs)
+
+        return transformed
+
+    def save_model(self, save_path) -> None:
 
         logger.info('Saving tfidf model to {}'.format(save_path))
 
         opts = {'hash_size': self.hash_size,
                 'ngram_range': self.tokenizer.ngram_range,
                 'doc2index': self.doc2index,
-                'term_freqs': self.freqs}
+                'term_freqs': self.term_freqs}
 
         data = {
-            'data': tfidf_matrix.data,
-            'indices': tfidf_matrix.indices,
-            'indptr': tfidf_matrix.indptr,
-            'shape': tfidf_matrix.shape,
+            'data': self.tfidf_matrix.data,
+            'indices': self.tfidf_matrix.indices,
+            'indptr': self.tfidf_matrix.indptr,
+            'shape': self.tfidf_matrix.shape,
             'opts': opts
         }
         np.savez(save_path, **data)
 
-    @staticmethod
-    def load_model(load_path) -> Tuple[sp.sparse.csr_matrix, Dict]:
+    def load_model(self, load_path) -> None:
         logger.info('Loading tfidf model from {}'.format(load_path))
         loader = np.load(load_path)
-        matrix = sp.sparse.csr_matrix((loader['data'], loader['indices'],
-                                       loader['indptr']), shape=loader['shape'])
-        return matrix, loader['opts'].item(0)
+
+        self.tfidf_matrix = sp.sparse.csr_matrix((loader['data'], loader['indices'],
+                                                  loader['indptr']), shape=loader['shape'])
+        opts = loader['opts'].item(0)
+
+        ngram_range = opts['ngram_range']
+
+        assert self.tokenizer.ngram_range == ngram_range, \
+            'The tokenizer attribute of HashingTdidfVectorizer' \
+            'was initialized with different ngram_range than the loaded model'
+
+        self.hash_size = opts['hash_size']
+        self.term_freqs = opts['term_freqs'].squeeze()
+        self.doc2index = opts['doc2index']
