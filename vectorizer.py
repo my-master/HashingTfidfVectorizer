@@ -28,8 +28,8 @@ class HashingTfIdfVectorizer:
         :param tokenizer: an instance of a tokenizer class; should implement "lemmatize()"
          and/or "tokenize() methods"
         """
-        # self.doc2index = data_iterator.doc2index
-        self.doc2index = None
+        self.doc2index = data_iterator.doc2index
+        # self.doc2index = None
         self.hash_size = hash_size
         self.tokenizer = tokenizer
 
@@ -208,7 +208,7 @@ class HashingTfIdfVectorizer:
 
         opts = {'hash_size': self.hash_size,
                 'ngram_range': self.tokenizer.ngram_range,
-                'doc_index': self.doc2index,
+                'doc2index': self.doc2index,
                 'term_freqs': self.term_freqs}
 
         data = {
