@@ -19,7 +19,7 @@ class HashingTfIdfVectorizer:
     Create a tfidf matrix from collection of documents.
     """
 
-    def __init__(self, data_iterator, hash_size=2 ** 24, tokenizer=SpacyTokenizer()):
+    def __init__(self, data_iterator, hash_size=2 ** 24, tokenizer=SpacyTokenizer(ngram_range=(1,2))):
         """
 
         :param data_iterator: an instance of an iterator class, producing data batches;
@@ -28,7 +28,8 @@ class HashingTfIdfVectorizer:
         :param tokenizer: an instance of a tokenizer class; should implement "lemmatize()"
          and/or "tokenize() methods"
         """
-        self.doc2index = data_iterator.doc2index
+        # self.doc2index = data_iterator.doc2index
+        self.doc2index = None
         self.hash_size = hash_size
         self.tokenizer = tokenizer
 
@@ -207,7 +208,7 @@ class HashingTfIdfVectorizer:
 
         opts = {'hash_size': self.hash_size,
                 'ngram_range': self.tokenizer.ngram_range,
-                'doc2index': self.doc2index,
+                'doc_index': self.doc2index,
                 'term_freqs': self.term_freqs}
 
         data = {
@@ -236,3 +237,9 @@ class HashingTfIdfVectorizer:
         self.hash_size = opts['hash_size']
         self.term_freqs = opts['term_freqs'].squeeze()
         self.doc2index = opts['doc2index']
+
+# PATH='/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/ruwiki_tfidf_matrix.npz'
+# vectorizer = HashingTfIdfVectorizer(None)
+# vectorizer.load(PATH)
+# vectorizer.save('/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/ruwiki_tfidf_matrix_new.npz')
+
