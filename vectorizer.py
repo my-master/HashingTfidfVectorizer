@@ -208,7 +208,7 @@ class HashingTfIdfVectorizer:
 
         opts = {'hash_size': self.hash_size,
                 'ngram_range': self.tokenizer.ngram_range,
-                'doc2index': self.doc2index,
+                'doc_index': self.doc2index,
                 'term_freqs': self.term_freqs}
 
         data = {
