@@ -28,7 +28,7 @@ class HashingTfIdfVectorizer:
         :param tokenizer: an instance of a tokenizer class; should implement "lemmatize()"
          and/or "tokenize() methods"
         """
-        self.doc2index = data_iterator.doc2index
+        self.doc_index = data_iterator.doc2index
         # self.doc2index = None
         self.hash_size = hash_size
         self.tokenizer = tokenizer
@@ -60,7 +60,7 @@ class HashingTfIdfVectorizer:
             counts = Counter([hash(gram, self.hash_size) for gram in ngrams])
             hashes = counts.keys()
             values = counts.values()
-            _id = self.doc2index[next(doc_id)]
+            _id = self.doc_index[next(doc_id)]
             if values:
                 col_id = [_id] * len(values)
             else:
@@ -76,7 +76,7 @@ class HashingTfIdfVectorizer:
 
         docs = kwargs['docs']
         doc_ids = kwargs['doc_ids']
-        index = kwargs['doc2index']
+        index = kwargs['doc_index']
         hash_size = kwargs['hash_size']
 
         logger.info("Tokenizing batch...")
@@ -138,7 +138,7 @@ class HashingTfIdfVectorizer:
                 cols.extend(batch_cols)
                 data.extend(batch_data)
 
-        count_matrix = self.get_count_matrix(rows, cols, data, size=len(self.doc2index))
+        count_matrix = self.get_count_matrix(rows, cols, data, size=len(self.doc_index))
         tfidf_matrix, term_freqs = self.get_tfidf_matrix(count_matrix)
         self.term_freqs = term_freqs
         self.tfidf_matrix = tfidf_matrix
@@ -151,7 +151,7 @@ class HashingTfIdfVectorizer:
 
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
             futures = [executor.submit(self.get_counts_parallel, (
-                {'docs': docs, 'doc_ids': doc_ids, 'doc2index': self.doc2index,
+                {'docs': docs, 'doc_ids': doc_ids, 'doc_index': self.doc_index,
                  'hash_size': self.hash_size})) for docs, doc_ids
                        in
                        self.data_iterator.read_batch()]
@@ -162,7 +162,7 @@ class HashingTfIdfVectorizer:
                 data.extend(result[1])
                 cols.extend(result[2])
 
-        count_matrix = self.get_count_matrix(rows, cols, data, size=len(self.doc2index))
+        count_matrix = self.get_count_matrix(rows, cols, data, size=len(self.doc_index))
         tfidf_matrix, term_freqs = self.get_tfidf_matrix(count_matrix)
         self.term_freqs = term_freqs
         self.tfidf_matrix = tfidf_matrix
@@ -185,7 +185,7 @@ class HashingTfIdfVectorizer:
             if len(q_hashes) == 0:
                 return sp.sparse.csr_matrix((1, self.hash_size))
 
-            size = len(self.doc2index)
+            size = len(self.doc_index)
             Ns = self.term_freqs[hashes_unique]
             idfs = np.log((size - Ns + 0.5) / (Ns + 0.5))
             idfs[idfs < 0] = 0
@@ -208,7 +208,7 @@ class HashingTfIdfVectorizer:
 
         opts = {'hash_size': self.hash_size,
                 'ngram_range': self.tokenizer.ngram_range,
-                'doc_index': self.doc2index,
+                'doc_index': self.doc_index,
                 'term_freqs': self.term_freqs}
 
         data = {
@@ -236,7 +236,7 @@ class HashingTfIdfVectorizer:
 
         self.hash_size = opts['hash_size']
         self.term_freqs = opts['term_freqs'].squeeze()
-        self.doc2index = opts['doc2index']
+        self.doc_index = opts['doc_index']
 
 # PATH='/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/ruwiki_tfidf_matrix.npz'
 # vectorizer = HashingTfIdfVectorizer(None)

@@ -23,7 +23,7 @@ class SQLiteDataIterator:
         cursor = self.connect.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         assert cursor.arraysize == 1
-        name = cursor.fetchmany(0)[0][0]
+        name = cursor.fetchone()[0]
         cursor.close()
         return name
 

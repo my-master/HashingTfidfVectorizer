@@ -11,9 +11,8 @@ from tokenizers.stream_spacy_tokenizer import StreamSpacyTokenizer
 from vectorizer import HashingTfIdfVectorizer
 from logger import logger
 
-DATA_PATH = '/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/wiki_test.db'
-SAVE_PATH = '//media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/test/test.npz'
-# LOAD_PATH = '/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/en_wiki_test_tfidf.npz'
+DATA_PATH = '/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_test.db'
+SAVE_PATH = '/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_test_1.npz'
 
 # data = ["I think it's better to fry mushrooms.",
 #         "Oh, this senseless life of ours!"] * 20000
@@ -32,11 +31,13 @@ start_time = time.time()
 try:
     vectorizer.fit()
     vectorizer.save(SAVE_PATH)
-    vectorizer.load(SAVE_PATH)
-    vectorizer.transform(data)
+    # DEBUG
+    # vectorizer.load(SAVE_PATH)
+    # vectorizer.transform(data)
 except Exception as e:
     logger.exception(e)
     raise
 
-vectorizer.load(SAVE_PATH)
-logger.info("Completed in {} s.".format(time.time() - start_time))
+# DEBUG
+# vectorizer.load(SAVE_PATH)
+# logger.info("Completed in {} s.".format(time.time() - start_time))
