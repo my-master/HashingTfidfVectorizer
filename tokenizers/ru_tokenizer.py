@@ -75,7 +75,7 @@ class RussianTokenizer:
         """
         # DEBUG
         # size = len(data)
-        _ngram_range = self.ngram_range or ngram_range
+        # _ngram_range = self.ngram_range or ngram_range
 
         if self.lowercase is None:
             _lowercase = lowercase
@@ -89,8 +89,12 @@ class RussianTokenizer:
             if _lowercase:
                 tokens = [t.lower() for t in tokens]
             filtered = self._filter(tokens)
-            processed_doc = ngramize(filtered, ngram_range=_ngram_range)
-            yield from processed_doc
+            if ngram_range is not None:
+                _ngram_range = self.ngram_range or ngram_range
+                processed_doc = ngramize(filtered, ngram_range=_ngram_range)
+            else:
+                processed_doc = filtered
+            yield processed_doc
 
     def lemmatize(self, data: List[str], ngram_range=(1, 1)) -> \
             Generator[List[str], Any, None]:
@@ -105,7 +109,7 @@ class RussianTokenizer:
         # size = len(data)
         _ngram_range = self.ngram_range or ngram_range
 
-        tokenized_data = list(self.tokenize(data))
+        tokenized_data = list(self.tokenize(data, ngram_range=None))
 
         for i, doc in enumerate(tokenized_data):
             # DEBUG
@@ -120,7 +124,7 @@ class RussianTokenizer:
                 lemmas.append(lemma)
             filtered = self._filter(lemmas)
             processed_doc = ngramize(filtered, ngram_range=_ngram_range)
-            yield from processed_doc
+            yield processed_doc
 
     def _filter(self, items, alphas_only=True):
         """
@@ -143,5 +147,3 @@ class RussianTokenizer:
 
     def set_stopwords(self, stopwords):
         self.stopwords = stopwords
-
-
